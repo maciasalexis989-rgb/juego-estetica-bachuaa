@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Untitled</title>
+    
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>BachUAA: El Reto Final - DIFICULTAD SUPREMA</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Verdana', sans-serif; }
+        canvas { display: block; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 9999; color: white; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; }
+        #notification { position: fixed; top: 20px; right: 20px; padding: 20px; border-radius: 10px; font-weight: bold; font-size: 18px; display: none; z-index: 2000; border: 3px solid #fff; max-width: 400px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #hud { position: fixed; top: 20px; left: 20px; color: #f1c40f; font-size: 32px; font-weight: bold; z-index: 1000; text-shadow: 3px 3px #000; }
+        .btn-ui { padding: 20px 50px; font-size: 24px; background: #27ae60; color: white; border: 4px solid #fff; border-radius: 15px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        .btn-ui:hover { background: #2ecc71; transform: scale(1.1); }
+        .profesor-msg { color: #f39c12; font-style: italic; font-size: 22px; margin-top: 10px; border-left: 5px solid #f39c12; padding-left: 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="hud">ESTRELLAS: 0 / 5</div>
+    <div id="notification"></div>
+
+    <div id="ia-screen" class="overlay">
+        <h1 style="color: #2ecc71; font-size: 50px;">¡PLAGIO DETECTADO!</h1>
+        <p id="ia-msg" style="font-size: 26px; max-width: 800px;"></p>
+        <div class="profesor-msg" id="prof-ia-msg"></div>
+        <button class="btn-ui" onclick="continuarJuego()">RECUPERAR MI AUTONOMÍA</button>
+    </div>
+
+    <div id="game-over-screen" class="overlay">
+        <h1 id="msg-final-titulo" style="font-size: 70px;">REPROBADO</h1>
+        <p id="msg-final-desc" style="font-size: 28px; color: #e74c3c;"></p>
+        <div class="profesor-msg" id="prof-death-msg"></div>
+        <button class="btn-ui" onclick="window.location.reload(true);">REINTENTAR SEMESTRE</button>
+        <button id="btn-arte" class="btn-ui" style="display:none; background:#8e44ad;" onclick="mostrarArte()">VER MI OBRA MAESTRA</button>
+    </div>
+
+    <div id="art-screen" class="overlay">
+        <h1 style="color: #f1c40f;">"La Trascendencia del Estudiante"</h1>
+        <div style="background: white; padding: 15px; border: 15px solid #d4af37;">
+            <canvas id="final-art-canvas" width="600" height="400"></canvas>
+        </div>
+        <p style="font-size: 20px; margin-top: 15px;">"Una catarsis de conocimiento plasmada en el lienzo del tiempo."</p>
+        <button class="btn-ui" onclick="window.location.reload(true);">EGRESAR CON HONOR</button>
+    </div>
+
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            physics: { default: 'arcade', arcade: { gravity: { y: 1400 }, debug: false } },
+            scene: { preload, create, update }
+        };
+
+        const game = new Phaser.Game(config);
+        let player, platforms, questionBlocks, enemies, robots, stars, plants, goal, cursors, books;
+        let isGameOver = false, isPaused = false, starsCollected = 0;
+        let stats = { jump: -900, speed: 400 };
+
+        function preload() {
+            this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
+            this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
+            this.load.image('block', 'https://labs.phaser.io/assets/sprites/box-item-filled.png');
+            this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+            this.load.image('blueBall', 'https://labs.phaser.io/assets/sprites/blue_ball.png');
+            this.load.image('robot', 'https://labs.phaser.io/assets/sprites/aqua_ball.png'); 
+            this.load.image('star', 'https://labs.phaser.io/assets/sprites/star.png');
+            this.load.image('plant', 'https://labs.phaser.io/assets/sprites/flower-exo.png');
+            this.load.image('goal', 'https://labs.phaser.io/assets/sprites/fuji.png');
+            this.load.image('book', 'https://labs.phaser.io/assets/sprites/diamond.png');
+        }
+
+        function create() {
+            const worldWidth = 9000;
+            const h = window.innerHeight;
+            this.physics.world.setBounds(0, 0, worldWidth, h);
+
+            for (let x = 0; x < worldWidth; x += 1500) { this.add.image(x, h/2, 'sky').setScale(3); }
+
+            platforms = this.physics.add.staticGroup();
+            for (let x = 0; x < worldWidth; x += 400) { platforms.create(x, h - 30, 'ground').setOrigin(0, 0).refreshBody(); }
+
+            const pLocs = [{x: 900, y: h-250}, {x: 1600, y: h-400}, {x: 2300, y: h-280}, {x: 3200, y: h-450}, {x: 4100, y: h-300}, {x: 5200, y: h-420}, {x: 6100, y: h-280}, {x: 7300, y: h-450}];
+            pLocs.forEach(p => platforms.create(p.x, p.y, 'ground').setScale(0.6).refreshBody());
+
+            stars = this.physics.add.group();
+            const sLocs = [{x: 1600, y: h-500}, {x: 3200, y: h-550}, {x: 4100, y: h-400}, {x: 5200, y: h-520}, {x: 7300, y: h-550}];
+            sLocs.forEach(pos => { let s = stars.create(pos.x, pos.y, 'star'); s.setTint(0xffff00).setScale(1.2).setBounceY(Phaser.Math.FloatBetween(0.4, 0.8)); });
+
+            enemies = this.physics.add.group();
+            for (let x = 800; x < worldWidth - 1000; x += 140) { let e = enemies.create(x, h - 100, 'blueBall'); e.setBounce(1).setCollideWorldBounds(true).setVelocityX(Phaser.Math.Between(-400, 400)); }
+
+            books = this.physics.add.group({ allowGravity: false });
+            for (let x = 1200; x < worldWidth - 1000; x += 600) { let b = books.create(x, Phaser.Math.Between(100, h-350), 'book'); b.setTint(0xff3300).setScale(1.5).setVelocityY(250); }
+
+            robots = this.physics.add.group();
+            [2000, 4000, 6000, 7500].forEach(x => { let r = robots.create(x, h - 150, 'robot'); r.setTint(0x00ff00).setScale(2).setBounce(1).setCollideWorldBounds(true).setVelocityX(300); });
+
+            plants = this.physics.add.staticGroup();
+            for (let x = 500; x < worldWidth - 500; x += 350) { plants.create(x, h - 80, 'plant').setTint(0xff0000).setScale(1.5); }
+
+            questionBlocks = this.physics.add.staticGroup();
+            const materias = [{n: "ESTÉTICA", f: "Profesor: ¡Siente lo sublime en este salto!", e: "jump"}, {n: "LÓGICA", f: "Profesor: Un juicio correcto te dará impulso.", e: "jump"}, {n: "ÉTICA", f: "Profesor: El deber te hace correr con justicia.", e: "speed"}, {n: "EPISTEMOLOGÍA", f: "Profesor: Tu conocimiento de la verdad te agiganta.", e: "big"}, {n: "HISTORIA", f: "Profesor: Avanzas más rápido que el pasado.", e: "speed"}, {n: "ONTOLOGÍA", f: "Profesor: Tu ser se eleva sobre la existencia.", e: "jump"}, {n: "ANTROPOLOGÍA", f: "Profesor: Evolucionas a una forma más ágil.", e: "small"}, {n: "SOCIOLOGÍA", f: "Profesor: Te expandes en el tejido social.", e: "big"}, {n: "FILOSOFÍA", f: "Profesor: La sabiduría es el motor de tu camino.", e: "speed"}, {n: "METODOLOGÍA", f: "Profesor: El rigor técnico te lleva al éxito.", e: "jump"}];
+            const bPosX = [700, 1400, 2200, 3000, 3800, 4700, 5600, 6500, 7400, 7800];
+            bPosX.forEach((x, i) => { let b = questionBlocks.create(x, h-350, 'block'); b.setData('info', materias[i]); this.add.text(x - 50, h-420, materias[i].n, { fontSize: '18px', fill: '#0ff', fontWeight: 'bold' }); });
+
+            goal = this.physics.add.staticSprite(worldWidth - 150, h-150, 'goal').setScale(3);
+            player = this.physics.add.sprite(200, h-200, 'player').setScale(1.2).setCollideWorldBounds(true);
+            this.cameras.main.setBounds(0, 0, worldWidth, h).startFollow(player, true, 0.1, 0.1);
+
+            this.physics.add.collider(player, platforms);
+            this.physics.add.collider(enemies, platforms);
+            this.physics.add.collider(robots, platforms);
+            this.physics.add.collider(stars, platforms);
+            this.physics.add.overlap(player, stars, (p, s) => { s.disableBody(true, true); starsCollected++; document.getElementById('hud').innerText = `ESTRELLAS: ${starsCollected} / 5`; showNote("¡Estrella obtenida! Tu promedio sube.", "#f1c40f"); });
+            this.physics.add.overlap(player, robots, () => castigoIA());
+            this.physics.add.overlap(player, plants, () => morir("plantas"));
+            this.physics.add.overlap(player, books, () => morir("proyecto"));
+            this.physics.add.overlap(player, enemies, (p, e) => { if (p.body.velocity.y > 0 && !p.body.touching.down) { e.destroy(); p.setVelocityY(-700); } else morir("enemigo"); });
+            this.physics.add.collider(player, questionBlocks, (p, b) => { if (p.body.touching.up) { p.setVelocityY(300); const info = b.getData('info'); let n1 = Phaser.Math.Between(6, 13), n2 = Phaser.Math.Between(4, 11); setTimeout(() => { let a = prompt(`[EXAMEN DE ${info.n}]\nProfesor: Resuelve esto para trascender:\n${n1} x ${n2} = ?`); if (parseInt(a) === (n1*n2)) { aplicarEfecto(info); b.disableBody(true, true); } else { resetStats(); showNote("Profesor: ¡Qué falta de sensibilidad estética! Reprobado.", "#c0392b"); } }, 50); } });
+            this.physics.add.overlap(player, goal, () => { if(starsCollected >= 5) ganar(); else showNote("Profesor: Tu obra está incompleta. Necesitas 5 estrellas.", "#e67e22"); });
+
+            cursors = this.input.keyboard.createCursorKeys();
+
+            // --- ESTO ES LO ÚNICO QUE AGREGUÉ ---
+            this.input.keyboard.on('keydown-C', () => {
+                starsCollected = 5;
+                document.getElementById('hud').innerText = `ESTRELLAS: 5 / 5`;
+                player.x = worldWidth - 600;
+                showNote("¡TRUCO ACTIVADO!", "#9b59b6");
+            });
+        }
+
+        function aplicarEfecto(info) { showNote(info.f, "#27ae60"); if (info.e === 'jump') stats.jump -= 180; else if (info.e === 'speed') stats.speed += 180; else if (info.e === 'big') player.setScale(2); else if (info.e === 'small') player.setScale(0.6); }
+        function castigoIA() { isPaused = true; game.scene.scenes[0].physics.pause(); player.x -= 400; resetStats(); document.getElementById('ia-msg').innerText = "Has dejado que una máquina piense por ti. El juicio estético es humano."; document.getElementById('prof-ia-msg').innerText = "Profesor: ¡El plagio es la muerte del espíritu creativo!"; document.getElementById('ia-screen').style.display = 'flex'; }
+        function morir(causa) { isGameOver = true; game.scene.scenes[0].physics.pause(); let d = "", p = ""; if (causa === "proyecto") { d = "Proyecto integrador te ha retrasado."; p = "Profesor: Lo técnico sin estética es solo un trámite vacío. ¡A recursar!"; } else if (causa === "plantas") { d = "Te asfixiaste en la maleza de las tareas pendientes."; p = "Profesor: No supiste contemplar el jardín del conocimiento."; } else { d = "La ignorancia del sistema te ha consumido."; p = "Profesor: La belleza requiere esfuerzo, y tú te rendiste."; } document.getElementById('msg-final-desc').innerText = d; document.getElementById('prof-death-msg').innerText = p; document.getElementById('game-over-screen').style.display = 'flex'; }
+        function ganar() { isGameOver = true; game.scene.scenes[0].physics.pause(); document.getElementById('msg-final-titulo').innerText = "¡GRADUADO!"; document.getElementById('msg-final-titulo').style.color = "#2ecc71"; document.getElementById('msg-final-desc').innerText = "Has alcanzado la catarsis intelectual."; document.getElementById('prof-death-msg').innerText = "Profesor: ¡Magnífico! Tu trayectoria ha sido una experiencia sensible inolvidable."; document.getElementById('game-over-screen').style.display = 'flex'; document.getElementById('btn-arte').style.display = 'inline-block'; }
+        function continuarJuego() { isPaused = false; document.getElementById('ia-screen').style.display = 'none'; game.scene.scenes[0].physics.resume(); }
+        function resetStats() { stats = { jump: -900, speed: 400 }; player.setScale(1.2); }
+        function showNote(m, c) { const n = document.getElementById('notification'); n.innerText = m; n.style.backgroundColor = c; n.style.display = 'block'; setTimeout(() => n.style.display = 'none', 3500); }
+
+        function update() {
+            if (isGameOver || isPaused) return;
+            if (cursors.left.isDown) player.setVelocityX(-stats.speed);
+            else if (cursors.right.isDown) player.setVelocityX(stats.speed);
+            else player.setVelocityX(0);
+            if (cursors.up.isDown && player.body.touching.down) player.setVelocityY(stats.jump);
+            robots.children.iterate(r => { if (r.body && (r.body.blocked.left || r.body.blocked.right)) r.setVelocityX(r.body.velocity.x * -1); });
+            books.children.iterate(b => { if (b.y < 100) b.setVelocityY(250); if (b.y > window.innerHeight - 100) b.setVelocityY(-250); });
+        }
+
+        function mostrarArte() { document.getElementById('game-over-screen').style.display = 'none'; document.getElementById('art-screen').style.display = 'flex'; const ctx = document.getElementById('final-art-canvas').getContext('2d'); ctx.fillStyle = "#3498db"; ctx.fillRect(0,0,600,400); ctx.fillStyle = "#2c3e50"; ctx.fillRect(100, 150, 400, 250); ctx.fillStyle = "#f1c40f"; ctx.font = "bold 50px serif"; ctx.fillText("U A A", 230, 260); ctx.strokeStyle = "#fff"; ctx.lineWidth = 5; ctx.strokeRect(10, 10, 580, 380); ctx.fillStyle = "#e67e22"; ctx.beginPath(); ctx.arc(300, 320, 40, 0, Math.PI*2); ctx.fill(); }
+    </script>
+</body>
+</html>
+    
+  </body>
+  
+</html>
